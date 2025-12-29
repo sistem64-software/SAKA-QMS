@@ -1,0 +1,270 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-dark-900 text-dark-50 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-medium rounded-lg hover:from-primary-700 hover:to-primary-600 transition-all duration-200 shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-2.5 bg-dark-800 text-dark-100 font-medium rounded-lg border border-dark-700 hover:bg-dark-700 hover:border-dark-600 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-dark-800 border border-dark-700 rounded-xl p-6 shadow-lg;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2.5 bg-dark-900 border border-dark-700 rounded-lg text-dark-100 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
+  }
+
+  .select-field {
+    @apply w-full px-4 py-2.5 bg-dark-900 border border-dark-700 rounded-lg text-dark-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent;
+  }
+
+  .glass-morphism {
+    @apply bg-dark-800/50 backdrop-blur-xl border border-dark-700/50;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-700 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-dark-600;
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(to right, #1e293b 4%, #334155 25%, #1e293b 36%);
+  background-size: 1000px 100%;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
+/* Print Styles for Excel */
+@media print {
+
+  /* Hide all UI elements except the table */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Reset body and html for printing */
+  html,
+  body,
+  #root,
+  .overflow-hidden,
+  .h-screen,
+  main {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    position: static !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Make the Excel print area and all its children visible */
+  #excel-print-area,
+  #excel-print-area * {
+    visibility: visible !important;
+  }
+
+  /* Position and style the print area */
+  #excel-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  /* Remove overflow restrictions from all containers */
+  .overflow-auto {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Ensure flex containers don't restrict height */
+  .flex,
+  .flex-col {
+    display: block !important;
+    /* Switch to block to avoid flex height issues */
+    height: auto !important;
+  }
+
+  /* Table styling - Scale to fit if needed */
+  table {
+    width: 100% !important;
+    page-break-inside: auto;
+    border-collapse: collapse !important;
+    table-layout: fixed;
+    /* Better for handling column widths */
+  }
+
+  tbody {
+    display: table-row-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  td {
+    page-break-inside: avoid;
+    padding: 2px !important;
+    min-width: auto !important;
+    /* Allow columns to shrink */
+    width: auto !important;
+    white-space: normal !important;
+    /* Allow text wrapping */
+    word-break: break-word;
+  }
+
+  /* Make input fields look like normal text */
+  td input {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    color: #000 !important;
+    width: 100% !important;
+    height: auto !important;
+    white-space: pre-wrap !important;
+    /* Preserve line breaks but wrap */
+    overflow: visible !important;
+  }
+
+  /* Keep cell borders */
+  table,
+  td {
+    border: 1px solid #000 !important;
+    border-color: #000 !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: auto;
+    margin: 0;
+    /* Tarayıcı header/footer'ını kaldır */
+  }
+
+  /* Sayfa içi margin */
+  body {
+    margin: 1cm !important;
+  }
+}
+
+/* Syncfusion Lisans Uyarısını Gizle */
+/* Trial banner'ını gizle - deneme aşaması için */
+.e-de-ctn-title+div[style*="position: absolute"],
+div[style*="position: absolute"][style*="top: 0px"],
+.e-toast-container {
+  display: none !important;
+}
+
+/* Alternatif: Tüm Syncfusion info mesajlarını gizle */
+div[role="alert"][aria-live="polite"] {
+  display: none !important;
+}
+
+/* XPath /html/body/div[3] ve div[5] elementlerini gizle */
+body>div:nth-child(3),
+body>div:nth-child(5),
+body>div:nth-child(26)>div,
+body>div:nth-child(26)>div>div {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
