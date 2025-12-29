@@ -16,38 +16,58 @@ def is_allowed_file(filename: str) -> bool:
     return Path(filename).suffix.lower() in ALLOWED_EXTENSIONS
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(files: list[UploadFile] = File(...)):
     """
-    Şablon dosyası yükle
-    Excel veya Word dosyasını form_sablonlari klasörüne kaydeder
+    Şablon dosyası yükle (birden fazla dosya desteklenmektedir)
+    Excel veya Word dosyalarını form_sablonlari klasörüne kaydeder
     """
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Dosya adı geçersiz")
+    if not files:
+        raise HTTPException(status_code=400, detail="Dosya seçilmedi")
     
-    # Dosya uzantısını kontrol et
-    if not is_allowed_file(file.filename):
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Sadece {', '.join(ALLOWED_EXTENSIONS)} dosyaları yüklenebilir"
-        )
+    uploaded_files = []
+    errors = []
     
-    # Dosya yolunu oluştur
-    file_path = UPLOAD_DIR / file.filename
-    
-    # Aynı isimde dosya varsa üzerine yaz
-    try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Dosya yükleme hatası: {str(e)}")
-    finally:
-        file.file.close()
+    for file in files:
+        if not file.filename:
+            errors.append({"filename": "bilinmiyor", "error": "Dosya adı geçersiz"})
+            continue
+        
+        # Dosya uzantısını kontrol et
+        if not is_allowed_file(file.filename):
+            errors.append({
+                "filename": file.filename,
+                "error": f"Sadece {', '.join(ALLOWED_EXTENSIONS)} dosyaları yüklenebilir"
+            })
+            continue
+        
+        # Dosya yolunu oluştur
+        file_path = UPLOAD_DIR / file.filename
+        
+        # Aynı isimde dosya varsa üzerine yaz
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            uploaded_files.append({
+                "filename": file.filename,
+                "path": str(file_path),
+                "size": os.path.getsize(file_path)
+            })
+        except Exception as e:
+            errors.append({
+                "filename": file.filename,
+                "error": f"Dosya yükleme hatası: {str(e)}"
+            })
+        finally:
+            file.file.close()
     
     return {
-        "filename": file.filename,
-        "path": str(file_path),
-        "size": os.path.getsize(file_path),
-        "message": "Dosya başarıyla yüklendi"
+        "uploaded": uploaded_files,
+        "errors": errors,
+        "total": len(files),
+        "success_count": len(uploaded_files),
+        "error_count": len(errors),
+        "message": f"{len(uploaded_files)} dosya başarıyla yüklendi"
     }
 
 @router.get("/templates")

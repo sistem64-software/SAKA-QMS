@@ -25,19 +25,32 @@ export default function Sidebar({
     const fileInputRef = useRef(null)
 
     const handleFileUpload = async (event) => {
-        const file = event.target.files[0]
-        if (!file) return
+        const files = Array.from(event.target.files)
+        if (files.length === 0) return
 
         const formData = new FormData()
-        formData.append('file', file)
+        files.forEach(file => {
+            formData.append('files', file)
+        })
 
         setUploading(true)
         try {
-            await axios.post(`${API_BASE}/upload`, formData, {
+            const response = await axios.post(`${API_BASE}/upload`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
             })
+
+            // Başarı mesajı göster
+            if (response.data.success_count > 0) {
+                const message = `${response.data.success_count} dosya başarıyla yüklendi`
+                if (response.data.error_count > 0) {
+                    alert(`${message}\n${response.data.error_count} dosya yüklenemedi`)
+                } else {
+                    alert(message)
+                }
+            }
+
             onFileUploaded()
             // Input'u temizle
             if (fileInputRef.current) {
@@ -93,6 +106,7 @@ export default function Sidebar({
                         ref={fileInputRef}
                         type="file"
                         accept=".xlsx,.xls,.docx,.doc"
+                        multiple
                         onChange={handleFileUpload}
                         disabled={uploading}
                         className="hidden"
@@ -117,7 +131,7 @@ export default function Sidebar({
                     </div>
                 </label>
                 <p className="text-xs text-dark-500 mt-2 text-center">
-                    Excel veya Word dosyası seçin
+                    Birden fazla Excel veya Word dosyası seçebilirsiniz
                 </p>
             </div>
 
