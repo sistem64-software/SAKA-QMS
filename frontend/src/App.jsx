@@ -26,6 +26,9 @@ function App() {
     const [isLicensed, setIsLicensed] = useState(false)
     const [isCheckingLicense, setIsCheckingLicense] = useState(true)
     const [showActivationDialog, setShowActivationDialog] = useState(false)
+    const [companyName, setCompanyName] = useState(() => {
+        return localStorage.getItem('companyName') || ''
+    })
 
     // Toast helper function
     const showToast = (message, type = 'info') => {
@@ -182,7 +185,11 @@ function App() {
     }
 
     // Lisans aktifleştirildiğinde
-    const handleLicenseActivated = () => {
+    const handleLicenseActivated = (newCompanyName) => {
+        if (newCompanyName) {
+            setCompanyName(newCompanyName)
+            localStorage.setItem('companyName', newCompanyName)
+        }
         setIsLicensed(true)
         setShowActivationDialog(false)
         showToast('Lisans başarıyla aktifleştirildi!', 'success')
@@ -207,6 +214,15 @@ function App() {
             loadCompanies()
         }
     }, [isLicensed, isCheckingLicense])
+
+    // Title'ı dinamik olarak güncelle
+    useEffect(() => {
+        if (companyName) {
+            document.title = `${companyName} - Form Yönetim Sistemi`
+        } else {
+            document.title = 'SAKA QMS - Form Yönetim Sistemi'
+        }
+    }, [companyName])
 
     // Dosya seçildiğinde içeriği yükle
     const handleFileSelect = async (file) => {
@@ -394,6 +410,7 @@ function App() {
                 searchResults={searchResults}
                 isSearching={isSearching}
                 onClearSearch={clearSearch}
+                companyName={companyName}
             />
 
             {/* Main Content Area */}
