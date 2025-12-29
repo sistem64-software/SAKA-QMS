@@ -19,7 +19,8 @@ export default function Sidebar({
     onSearch,
     searchResults = [],
     isSearching = false,
-    onClearSearch
+    onClearSearch,
+    companyName = ''
 }) {
     const [uploading, setUploading] = useState(false)
     const fileInputRef = useRef(null)
@@ -94,7 +95,7 @@ export default function Sidebar({
             {/* Header */}
             <div className="p-6 text-right">
                 <h1 className="text-2xl font-bold text-gradient mb-2">
-                    SAKA QMS
+                    {companyName || 'SAKA QMS'}
                 </h1>
                 <p className="text-sm text-dark-400">Form Yönetim Sistemi</p>
             </div>

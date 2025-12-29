@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import ConfirmDialog from './ConfirmDialog'
 
 const API_BASE = '/api'
 
 function ActivationDialog({ isOpen, onActivated }) {
     const [hwid, setHwid] = useState('')
     const [licenseKey, setLicenseKey] = useState('')
+    const [companyName, setCompanyName] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [copySuccess, setCopySuccess] = useState(false)
+    const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
     useEffect(() => {
         if (isOpen) {
@@ -83,12 +86,21 @@ function ActivationDialog({ isOpen, onActivated }) {
         setTimeout(() => setCopySuccess(false), 2000)
     }
 
-    const handleActivate = async () => {
+    const handleActivateClick = () => {
         if (!licenseKey.trim()) {
             setError('Lütfen lisans anahtarını girin')
             return
         }
+        if (!companyName.trim()) {
+            setError('Lütfen şirket adını girin')
+            return
+        }
+        setError('')
+        setShowConfirmDialog(true)
+    }
 
+    const handleActivate = async () => {
+        setShowConfirmDialog(false)
         setLoading(true)
         setError('')
 
@@ -98,8 +110,9 @@ function ActivationDialog({ isOpen, onActivated }) {
             })
 
             if (response.data.is_licensed) {
-                // Başarılı - ana uygulamayı aç
-                onActivated()
+                // Başarılı - firma adını localStorage'a kaydet ve ana uygulamayı aç
+                localStorage.setItem('companyName', companyName.trim())
+                onActivated(companyName.trim())
             } else {
                 setError('Lisans aktifleştirilemedi')
             }
@@ -199,6 +212,20 @@ function ActivationDialog({ isOpen, onActivated }) {
                         </p>
                     </div>
 
+                    {/* Company Name Input */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Şirket Adı
+                        </label>
+                        <input
+                            type="text"
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            placeholder="Şirket adınızı girin..."
+                            className="w-full px-4 py-3 bg-dark-900 border border-dark-600 rounded-lg text-gray-300 text-sm focus:outline-none focus:border-primary-500"
+                        />
+                    </div>
+
                     {/* License Key Input */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -275,8 +302,8 @@ function ActivationDialog({ isOpen, onActivated }) {
                     {/* Action Buttons */}
                     <div className="flex gap-3 pt-4">
                         <button
-                            onClick={handleActivate}
-                            disabled={loading || !licenseKey.trim()}
+                            onClick={handleActivateClick}
+                            disabled={loading || !licenseKey.trim() || !companyName.trim()}
                             className="flex-1 px-6 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
                         >
                             {loading ? (
@@ -325,6 +352,19 @@ function ActivationDialog({ isOpen, onActivated }) {
                     </div>
                 </div>
             </div>
+
+            {/* Confirm Dialog */}
+            {showConfirmDialog && (
+                <ConfirmDialog
+                    title="Aktivasyonu Onayla"
+                    message={`Aktivasyonu gerçekleştirmek istediğinize emin misiniz?\n\nŞirket Adı: ${companyName.trim()}\n\nDüzenlemek ister misiniz?`}
+                    type="info"
+                    confirmText="Evet, Aktif Et"
+                    cancelText="Düzenle"
+                    onConfirm={handleActivate}
+                    onCancel={() => setShowConfirmDialog(false)}
+                />
+            )}
         </div>
     )
 }
