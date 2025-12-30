@@ -202,6 +202,9 @@ async def save_word_file_upload(file: UploadFile, company: str = Form(...)):
 
 def read_excel(file_path: Path) -> Dict[str, Any]:
     """Excel dosyasını oku ve tüm format bilgileriyle JSON formatına çevir"""
+    import base64
+    from io import BytesIO
+    
     wb = openpyxl.load_workbook(file_path)
     
     sheets_data = {}
@@ -292,13 +295,57 @@ def read_excel(file_path: Path) -> Dict[str, Any]:
             if row_dimension.height:
                 row_heights[str(row_num)] = row_dimension.height
         
+        # Resimleri oku
+        images = []
+        if hasattr(ws, '_images') and ws._images:
+            for img in ws._images:
+                try:
+                    # Resim verisini al
+                    image_data = img._data()
+                    
+                    # Base64'e çevir
+                    base64_data = base64.b64encode(image_data).decode('utf-8')
+                    
+                    # Resim formatını belirle
+                    image_format = 'png'  # Varsayılan
+                    if hasattr(img, 'format'):
+                        image_format = img.format.lower()
+                    
+                    # Anchor bilgisini al (resmin bağlı olduğu hücre)
+                    anchor = None
+                    if hasattr(img, 'anchor'):
+                        if hasattr(img.anchor, '_from'):
+                            # AnchorMarker objesi
+                            anchor_from = img.anchor._from
+                            if hasattr(anchor_from, 'col') and hasattr(anchor_from, 'row'):
+                                # Sütun harfine çevir (0-indexed'den)
+                                col_letter = openpyxl.utils.get_column_letter(anchor_from.col + 1)
+                                row_num = anchor_from.row + 1
+                                anchor = f"{col_letter}{row_num}"
+                    
+                    # Resim boyutları
+                    width = img.width if hasattr(img, 'width') else None
+                    height = img.height if hasattr(img, 'height') else None
+                    
+                    images.append({
+                        "anchor": anchor,
+                        "data": base64_data,
+                        "format": image_format,
+                        "width": width,
+                        "height": height
+                    })
+                except Exception as e:
+                    print(f"Resim okuma hatası: {str(e)}")
+                    continue
+        
         sheets_data[sheet_name] = {
             "data": data,
             "max_row": ws.max_row,
             "max_column": ws.max_column,
             "merged_cells": merged_cells,
             "column_widths": column_widths,
-            "row_heights": row_heights
+            "row_heights": row_heights,
+            "images": images
         }
     
     return {

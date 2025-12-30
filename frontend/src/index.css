@@ -126,6 +126,12 @@
 /* Print Styles for Excel */
 @media print {
 
+  /* Sayfa ayarları */
+  @page {
+    size: A4 portrait;
+    margin: 1cm 0.5cm;
+  }
+
   /* Hide all UI elements except the table */
   body * {
     visibility: hidden;
@@ -163,7 +169,7 @@
     height: auto !important;
     max-height: none !important;
     background: white !important;
-    padding: 0 !important;
+    padding: 0.3cm !important;
     margin: 0 !important;
     display: block !important;
   }
@@ -179,17 +185,19 @@
   .flex,
   .flex-col {
     display: block !important;
-    /* Switch to block to avoid flex height issues */
     height: auto !important;
   }
 
-  /* Table styling - Scale to fit if needed */
+  /* Table styling - Auto width for content-based sizing */
   table {
     width: 100% !important;
+    max-width: 100% !important;
     page-break-inside: auto;
     border-collapse: collapse !important;
-    table-layout: fixed;
-    /* Better for handling column widths */
+    table-layout: auto !important;
+    font-family: 'Calibri', 'Arial', sans-serif !important;
+    font-size: 8pt !important;
+    background: white !important;
   }
 
   tbody {
@@ -201,15 +209,31 @@
     page-break-after: auto;
   }
 
+  /* Hide empty rows in print */
+  tr.empty-row {
+    display: none !important;
+  }
+
+  /* Cell styling - Auto width based on content */
   td {
     page-break-inside: avoid;
-    padding: 2px !important;
-    min-width: auto !important;
-    /* Allow columns to shrink */
-    width: auto !important;
+    padding: 3pt 4pt !important;
+    border: 0.75pt solid #000 !important;
+    vertical-align: middle !important;
     white-space: normal !important;
-    /* Allow text wrapping */
-    word-break: break-word;
+    word-wrap: break-word !important;
+    background: white !important;
+    color: #000 !important;
+    min-width: 20px !important;
+    max-width: 200px !important;
+    width: auto !important;
+  }
+
+  /* Preserve cell background colors */
+  td[style*="background"],
+  td[style*="backgroundColor"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Make input fields look like normal text */
@@ -217,31 +241,44 @@
     border: none !important;
     background: transparent !important;
     padding: 0 !important;
-    color: #000 !important;
+    color: inherit !important;
     width: 100% !important;
     height: auto !important;
-    white-space: pre-wrap !important;
-    /* Preserve line breaks but wrap */
+    white-space: normal !important;
+    word-wrap: break-word !important;
     overflow: visible !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    text-align: inherit !important;
   }
 
-  /* Keep cell borders */
-  table,
-  td {
-    border: 1px solid #000 !important;
-    border-color: #000 !important;
+  /* Show images in print */
+  td img {
+    display: block !important;
+    visibility: visible !important;
+    max-width: 100% !important;
+    max-height: 200px !important;
+    height: auto !important;
+    width: auto !important;
+    object-fit: contain !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
-  /* Page setup */
-  @page {
-    size: auto;
-    margin: 0;
-    /* Tarayıcı header/footer'ını kaldır */
+  /* Hide add row buttons */
+  td button {
+    display: none !important;
+    visibility: hidden !important;
   }
 
-  /* Sayfa içi margin */
-  body {
-    margin: 1cm !important;
+  /* Page break optimization */
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
   }
 }
 

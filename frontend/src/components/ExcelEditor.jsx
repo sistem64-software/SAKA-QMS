@@ -224,6 +224,20 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
 
     // All cells are now editable - lock function removed
 
+    // Helper function: Get image for a specific cell coordinate
+    const getImageForCell = (coordinate) => {
+        const images = sheets[activeSheet]?.images || []
+        return images.find(img => img.anchor === coordinate)
+    }
+
+    // Helper function: Check if a row is completely empty
+    const isRowEmpty = (row) => {
+        return row.every(cell => {
+            const value = cell.value || ''
+            return value.toString().trim() === ''
+        })
+    }
+
     const currentSheetData = sheets[activeSheet]?.data || []
     const mergedCells = sheets[activeSheet]?.merged_cells || []
     const sheetNames = Object.keys(sheets)
@@ -307,7 +321,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                 <table className="border-collapse">
                     <tbody>
                         {currentSheetData.map((row, rowIndex) => (
-                            <tr key={rowIndex}>
+                            <tr key={rowIndex} className={isRowEmpty(row) ? 'empty-row' : ''}>
                                 {row.map((cell, colIndex) => {
                                     const spanInfo = getCellSpan(rowIndex, colIndex, mergedCells)
 
@@ -401,6 +415,29 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                                                     textAlign: cellStyle.textAlign,
                                                 }}
                                             />
+                                            {/* Display image if exists for this cell */}
+                                            {(() => {
+                                                const cellImage = getImageForCell(cell.coordinate)
+                                                if (cellImage) {
+                                                    return (
+                                                        <img
+                                                            src={`data:image/${cellImage.format};base64,${cellImage.data}`}
+                                                            alt="Cell image"
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: 0,
+                                                                left: 0,
+                                                                maxWidth: '100%',
+                                                                maxHeight: '100%',
+                                                                objectFit: 'contain',
+                                                                pointerEvents: 'none',
+                                                                zIndex: 1
+                                                            }}
+                                                        />
+                                                    )
+                                                }
+                                                return null
+                                            })()}
                                             {/* Add Row Button - Show only on the first column when hovering */}
                                             {hoveredCell?.row === rowIndex && hoveredCell?.col === colIndex && colIndex === 0 && (
                                                 <button
