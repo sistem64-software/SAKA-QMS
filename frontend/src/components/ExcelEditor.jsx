@@ -256,8 +256,47 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
         })
     }
 
+    // Helper function: Calculate the last column index that has data or formatting
+    const calculateLastUsedColIndex = (data, images) => {
+        let maxCol = 0;
+
+        // Check data and formatting
+        data.forEach((row, rowIndex) => {
+            row.forEach((cell, colIndex) => {
+                const hasValue = cell.value !== null && cell.value !== undefined && cell.value !== '';
+                const hasFormula = !!cell.formula;
+                const hasBorder = cell.border && (cell.border.top || cell.border.bottom || cell.border.left || cell.border.right);
+                const hasBackground = cell.style && cell.style.fill;
+
+                if (hasValue || hasFormula || hasBorder || hasBackground) {
+                    if (colIndex > maxCol) maxCol = colIndex;
+                }
+            });
+        });
+
+        // Check images
+        images.forEach(img => {
+            // Parse anchor like "A1" to find column index roughly
+            // Simple parsing assuming anchor is formatted correctly
+            const match = img.anchor.match(/([A-Z]+)(\d+)/);
+            if (match) {
+                const colStr = match[1];
+                let colIndex = 0;
+                for (let i = 0; i < colStr.length; i++) {
+                    colIndex = colIndex * 26 + (colStr.charCodeAt(i) - 64);
+                }
+                colIndex -= 1; // 0-indexed
+                if (colIndex > maxCol) maxCol = colIndex;
+            }
+        });
+
+        return maxCol;
+    }
+
     const currentSheetData = sheets[activeSheet]?.data || []
     const mergedCells = sheets[activeSheet]?.merged_cells || []
+    const currentImages = sheets[activeSheet]?.images || []
+    const lastUsedColIndex = calculateLastUsedColIndex(currentSheetData, currentImages)
     const sheetNames = Object.keys(sheets)
 
     return (
@@ -421,7 +460,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                                             key={colIndex}
                                             rowSpan={spanInfo.rowSpan || 1}
                                             colSpan={spanInfo.colSpan || 1}
-                                            className={`p-0 min-w-[80px] relative ${isLocked ? 'bg-dark-700/50' : ''}`}
+                                            className={`p-0 min-w-[80px] relative ${isLocked ? 'bg-dark-700/50' : ''} ${colIndex > lastUsedColIndex ? 'empty-col-print' : ''}`}
                                             style={cellStyle}
                                             onMouseEnter={() => setHoveredCell({ row: rowIndex, col: colIndex })}
                                             onMouseLeave={() => setHoveredCell(null)}

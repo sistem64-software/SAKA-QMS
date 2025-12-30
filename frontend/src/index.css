@@ -228,6 +228,11 @@
     display: none !important;
   }
 
+  /* Hide empty columns on the right in print */
+  td.empty-col-print {
+    display: none !important;
+  }
+
   /* Cell styling - Daha sıkı padding ve line-height */
   td {
     page-break-inside: avoid;
