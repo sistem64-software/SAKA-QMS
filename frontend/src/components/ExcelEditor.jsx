@@ -12,11 +12,29 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
     const [saving, setSaving] = useState(false)
     const [hoveredCell, setHoveredCell] = useState(null) // Track hovered cell {row, col}
     const [focusedCell, setFocusedCell] = useState(null) // Track focused cell {row, col} for formula display
-    // Removed originalCells - all cells are now editable
+    const [lockFilledCells, setLockFilledCells] = useState(true) // Lock cells that have initial values
+    const [originalCells, setOriginalCells] = useState({}) // Track original cell values
 
     useEffect(() => {
         setSheets(fileContent.sheets || {})
         setActiveSheet(fileContent.active_sheet || Object.keys(fileContent.sheets)[0])
+
+        // Save original cell values for locking
+        const original = {}
+        Object.keys(fileContent.sheets || {}).forEach(sheetName => {
+            original[sheetName] = {}
+            const sheetData = fileContent.sheets[sheetName].data || []
+            sheetData.forEach((row, rowIndex) => {
+                row.forEach((cell, colIndex) => {
+                    const key = `${rowIndex}-${colIndex}`
+                    const value = cell.value || ''
+                    if (value.toString().trim() !== '') {
+                        original[sheetName][key] = true
+                    }
+                })
+            })
+        })
+        setOriginalCells(original)
     }, [fileContent])
 
     const handleCellChange = (sheetName, rowIndex, colIndex, value) => {
@@ -257,6 +275,24 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
 
                     {/* Company & Actions - Responsive */}
                     <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                        {/* Lock Filled Cells Toggle Switch */}
+                        <div className="flex items-center gap-3 px-3 py-2 bg-dark-700 border border-dark-600 rounded text-sm">
+                            <span className="text-dark-200 whitespace-nowrap text-xs">Hücre Kilidi:</span>
+                            <button
+                                onClick={() => setLockFilledCells(!lockFilledCells)}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-700 ${lockFilledCells ? 'bg-primary-600' : 'bg-dark-600'
+                                    }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${lockFilledCells ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                />
+                            </button>
+                            <span className="text-dark-200 whitespace-nowrap text-xs font-medium">
+                                {lockFilledCells ? 'Kilitli' : 'Serbest'}
+                            </span>
+                        </div>
+
                         <select
                             value={selectedCompany}
                             onChange={(e) => setSelectedCompany(e.target.value)}
@@ -269,6 +305,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                                 </option>
                             ))}
                         </select>
+
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setShowNewCompanyModal(true)}
@@ -377,7 +414,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                                         cellStyle.border = borderStyle
                                     }
 
-                                    const isLocked = false // All cells are editable now
+                                    const isLocked = lockFilledCells && originalCells[activeSheet]?.[`${rowIndex}-${colIndex}`]
 
                                     return (
                                         <td
