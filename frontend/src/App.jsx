@@ -404,6 +404,7 @@ function App() {
                 onFileUploaded={handleFileUploaded}
                 onFileDelete={handleFileDelete}
                 onError={(msg) => showToast(msg, 'error')}
+                onSuccess={(msg) => showToast(msg, 'success')}
                 selectedFile={selectedFile}
                 isOpen={isSidebarOpen}
                 onSearch={handleSearch}

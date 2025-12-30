@@ -16,6 +16,7 @@ export default function Sidebar({
     selectedFile,
     isOpen,
     onError,
+    onSuccess,
     onSearch,
     searchResults = [],
     isSearching = false,
@@ -45,10 +46,12 @@ export default function Sidebar({
             // Başarı mesajı göster
             if (response.data.success_count > 0) {
                 const message = `${response.data.success_count} dosya başarıyla yüklendi`
-                if (response.data.error_count > 0) {
-                    alert(`${message}\n${response.data.error_count} dosya yüklenemedi`)
-                } else {
-                    alert(message)
+                const fullMessage = response.data.error_count > 0
+                    ? `${message}\n${response.data.error_count} dosya yüklenemedi`
+                    : message
+
+                if (onSuccess) {
+                    onSuccess(fullMessage, 'success')
                 }
             }
 
