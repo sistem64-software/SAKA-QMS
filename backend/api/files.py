@@ -7,6 +7,8 @@ from docx import Document
 import json
 import shutil
 import os
+import zipfile
+import xml.etree.ElementTree as ET
 
 router = APIRouter()
 
@@ -297,6 +299,23 @@ def read_excel(file_path: Path) -> Dict[str, Any]:
         
         # Resimleri oku
         images = []
+        
+        # Daha önce eklenen resimlerin anchor'larını takip et (Deep Parse ile çakışmayı önlemek için)
+        existing_anchors = set()
+        
+        # 1. Önce Deep Parse (Hücre İçi) resimleri dene
+        try:
+            deep_images = extract_deep_images(file_path)
+            if sheet_name in deep_images:
+                print(f"Deep parse ile {sheet_name} sayfasında {len(deep_images[sheet_name])} resim bulundu.")
+                for img in deep_images[sheet_name]:
+                    images.append(img)
+                    if img.get('anchor'):
+                        existing_anchors.add(img['anchor'])
+        except Exception as e:
+            print(f"Deep parse hatası: {str(e)}")
+
+        # 2. Standart OpenPyXL Resimleri
         if hasattr(ws, '_images') and ws._images:
             for img in ws._images:
                 try:
@@ -312,16 +331,43 @@ def read_excel(file_path: Path) -> Dict[str, Any]:
                         image_format = img.format.lower()
                     
                     # Anchor bilgisini al (resmin bağlı olduğu hücre)
+                    # Anchor bilgisini al (resmin bağlı olduğu hücre)
                     anchor = None
-                    if hasattr(img, 'anchor'):
-                        if hasattr(img.anchor, '_from'):
-                            # AnchorMarker objesi
-                            anchor_from = img.anchor._from
-                            if hasattr(anchor_from, 'col') and hasattr(anchor_from, 'row'):
-                                # Sütun harfine çevir (0-indexed'den)
-                                col_letter = openpyxl.utils.get_column_letter(anchor_from.col + 1)
-                                row_num = anchor_from.row + 1
+                    try:
+                        if hasattr(img, 'anchor'):
+                            # Farklı anchor tiplerini kontrol et
+                            # 1. TwoCellAnchor veya OneCellAnchor (genelde _from özelliğine sahiptir)
+                            if hasattr(img.anchor, '_from'):
+                                anchor_from = img.anchor._from
+                                col = getattr(anchor_from, 'col', None)
+                                row = getattr(anchor_from, 'row', None)
+                                
+                                if col is not None and row is not None:
+                                    col_letter = openpyxl.utils.get_column_letter(col + 1)
+                                    row_num = row + 1
+                                    anchor = f"{col_letter}{row_num}"
+                            
+                            # 2. Eğer yukarıdaki yöntem çalışmadıysa ve direkt col/row varsa (bazen AbsoluteAnchor olabilir ama hücreye bağlı değildir)
+                            elif not anchor and hasattr(img.anchor, 'col') and hasattr(img.anchor, 'row'):
+                                col = img.anchor.col
+                                row = img.anchor.row
+                                col_letter = openpyxl.utils.get_column_letter(col + 1)
+                                row_num = row + 1
                                 anchor = f"{col_letter}{row_num}"
+                                
+                            # 3. String olarak gelme ihtimali (eski sürümler vs)
+                            elif isinstance(img.anchor, str):
+                                anchor = img.anchor
+                                
+                        # Eğer bu anchor zaten Deep Parse ile bulunduysa, tekrar ekleme
+                        # (Genelde Place in Cell resimleri openpyxl'de görünmez ama yine de çakışma kontrolü)
+                        if anchor and anchor in existing_anchors:
+                            continue
+
+                    except Exception as anchor_err:
+                        print(f"Anchor okuma hatası: {str(anchor_err)}")
+                        # Anchor okunamadıysa resmi formatsız ekle veya atla
+                        pass
                     
                     # Resim boyutları
                     width = img.width if hasattr(img, 'width') else None
@@ -736,3 +782,167 @@ def save_word(file_path: Path, content: Dict[str, Any]):
                     table.cell(i, j).text = str(cell_data)
     
     doc.save(file_path)
+
+def extract_deep_images(file_path: Path) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Excel dosyasını ZIP olarak açıp "Place in Cell" (Hücre İçi) resimlerini yakalamaya çalışır.
+    Bu yöntem openpyxl'in desteklemediği Rich Value yapısını manuel parse eder.
+    """
+    import base64
+    
+    results = {}
+    
+    try:
+        if not zipfile.is_zipfile(file_path):
+            return {}
+
+        with zipfile.ZipFile(file_path, 'r') as z:
+            # 1. Sheet isimlerini ve yollarını bul (workbook.xml)
+            sheet_map = {} # { "rId1": "Sheet1" }
+            try:
+                wb_root = ET.fromstring(z.read('xl/workbook.xml'))
+                
+                # Namespace ile uğraşmamak için basit tag kontrolü
+                def clean_tag(tag):
+                    return tag.split('}')[-1] if '}' in tag else tag
+
+                for sheet in wb_root.findall(".//{*}sheet"):
+                    name = sheet.get('name')
+                    rId = sheet.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                    if name and rId:
+                        sheet_map[rId] = name
+            except:
+                pass
+            
+            # 2. Sheet yollarını bul (_rels/workbook.xml.rels)
+            sheet_paths = {} # { "Sheet1": "xl/worksheets/sheet1.xml" }
+            try:
+                rels_root = ET.fromstring(z.read('xl/_rels/workbook.xml.rels'))
+                for rel in rels_root.findall(".//{*}Relationship"):
+                    rId = rel.get('Id')
+                    target = rel.get('Target')
+                    if rId in sheet_map:
+                        sheet_name = sheet_map[rId]
+                        # Target bazen "worksheets/sheet1.xml", bazen "/xl/worksheets..." olabilir
+                        if target.startswith('/'):
+                            path = target[1:]
+                        elif target.startswith('worksheets'):
+                            path = f"xl/{target}"
+                        else:
+                            path = f"xl/{target}"
+                        sheet_paths[sheet_name] = path
+            except:
+                pass
+            
+            # 3. Metadata haritasını çıkar (metadata.xml) -> VM index to RV index
+            # vm="1" -> richValue index X
+            metadata_map = [] 
+            try:
+                if 'xl/metadata.xml' in z.namelist():
+                    meta_root = ET.fromstring(z.read('xl/metadata.xml'))
+                    # valueMetadata bloğunu bul
+                    # Genellikle: <valueMetadata ...><bk><rc t="1" v="0"/></bk>...</valueMetadata>
+                    # rc t="1" demek Rich Value, v="0" ise rdValues.xml'deki index
+                    for bk in meta_root.findall(".//{*}valueMetadata/{*}bk"):
+                        rc = bk.find(".//{*}rc")
+                        if rc is not None and rc.get('t') == '1': # t=1 Rich Value demek
+                            metadata_map.append(int(rc.get('v')))
+                        else:
+                            metadata_map.append(None)
+            except:
+                print("Metadata okunamadi")
+
+            # 4. Rich Values -> Resim İlişkisi (rdValues.xml ve richValueRel.xml)
+            # Basitleştirme: richValueRel.xml genellikle rv indexine karşılık gelen rId'yi tutar
+            rv_to_rid = {}
+            try:
+                if 'xl/richData/richValueRel.xml' in z.namelist():
+                    # <richValueRel ...><rel r:id="rId1"/> ... </richValueRel>
+                    # Buradaki sıra rdValues.xml'deki rv sırasıyla (veya metadata v indexiyle) aynıdır
+                    rv_rel_root = ET.fromstring(z.read('xl/richData/richValueRel.xml'))
+                    for idx, rel in enumerate(rv_rel_root.findall(".//{*}rel")):
+                        rId = rel.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                        if rId:
+                            rv_to_rid[idx] = rId
+            except:
+                pass
+            
+            # 5. rId -> Resim Dosyası Yolu (richData/_rels/richValueRel.xml.rels)
+            rid_to_path = {}
+            try:
+                rels_path = 'xl/richData/_rels/richValueRel.xml.rels'
+                if rels_path in z.namelist():
+                    rv_rels_root = ET.fromstring(z.read(rels_path))
+                    for rel in rv_rels_root.findall(".//{*}Relationship"):
+                        rId = rel.get('Id')
+                        target = rel.get('Target')
+                        if rId and target:
+                            # Target genelde "../media/image1.jpg" şeklindedir
+                            # Biz xl/richData/ konumundayız, ../ sonrası xl/media olur
+                            if target.startswith('../'):
+                                full_path = "xl" + target[2:]
+                            else:
+                                full_path = "xl/richData/" + target
+                            rid_to_path[rId] = full_path
+            except:
+                pass
+                
+            # 6. Her sheet'i tara ve resimli hücreleri bul
+            for sheet_name, xml_path in sheet_paths.items():
+                if xml_path not in z.namelist():
+                    continue
+                
+                sheet_images = []
+                try:
+                    sheet_root = ET.fromstring(z.read(xml_path))
+                    # <c r="A1" t="e" vm="1">
+                    for cell in sheet_root.findall(".//{*}c"):
+                        vm = cell.get('vm')
+                        if vm:
+                            try:
+                                vm_idx = int(vm)
+                                # vm 1-based index (genelde), metadata listesi 0-based
+                                # Ancak Excel vm indexleri bazen 1'den baslar. Deneme yanilma: genelde vm-1
+                                if vm_idx > 0 and (vm_idx - 1) < len(metadata_map):
+                                    rv_idx = metadata_map[vm_idx - 1]
+                                    
+                                    if rv_idx is not None and rv_idx in rv_to_rid:
+                                        rId = rv_to_rid[rv_idx]
+                                        
+                                        if rId in rid_to_path:
+                                            image_path = rid_to_path[rId]
+                                            
+                                            # Resmi zip'ten oku
+                                            if image_path in z.namelist():
+                                                img_data = z.read(image_path)
+                                                base64_data = base64.b64encode(img_data).decode('utf-8')
+                                                
+                                                # Dosya uzantısını bul
+                                                ext = os.path.splitext(image_path)[1][1:].lower()
+                                                if ext == 'jpeg': ext = 'jpg'
+                                                
+                                                # Anchor (A1 gibi)
+                                                anchor = cell.get('r')
+                                                
+                                                sheet_images.append({
+                                                    "anchor": anchor,
+                                                    "data": base64_data,
+                                                    "format": ext,
+                                                    "width": 100, # Varsayılan
+                                                    "height": 100,
+                                                    "type": "in_cell" # İşaretleyici
+                                                })
+                            except:
+                                continue
+                except Exception as e:
+                    print(f"Sheet parse error ({sheet_name}): {e}")
+                
+                if sheet_images:
+                    results[sheet_name] = sheet_images
+                    
+    except Exception as e:
+        print(f"Deep zip parse error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+    return results

@@ -476,6 +476,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                                     }
 
                                     const isLocked = lockFilledCells && originalCells[activeSheet]?.[`${rowIndex}-${colIndex}`]
+                                    const cellImage = getImageForCell(cell.coordinate)
 
                                     return (
                                         <td
@@ -487,91 +488,83 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                                             onMouseEnter={() => setHoveredCell({ row: rowIndex, col: colIndex })}
                                             onMouseLeave={() => setHoveredCell(null)}
                                         >
-                                            {focusedCell?.row === rowIndex && focusedCell?.col === colIndex ? (
-                                                <textarea
-                                                    value={cell.formula || cell.value || ''}
-                                                    onChange={(e) => handleCellChange(activeSheet, rowIndex, colIndex, e.target.value)}
-                                                    onFocus={() => { }}
-                                                    autoFocus
-                                                    onBlur={() => setFocusedCell(null)}
-                                                    readOnly={isLocked}
-                                                    rows={1}
-                                                    className={`w-full h-full px-2 py-1 text-sm bg-transparent focus:outline-none resize-none ${isLocked
-                                                        ? 'cursor-not-allowed'
-                                                        : 'focus:ring-2 focus:ring-primary-500 focus:z-10'
-                                                        }`}
+                                            {cellImage ? (
+                                                <img
+                                                    src={`data:image/${cellImage.format};base64,${cellImage.data}`}
+                                                    alt="Cell image"
                                                     style={{
-                                                        color: cellStyle.color || '#f3f4f6',
-                                                        fontWeight: cellStyle.fontWeight,
-                                                        fontStyle: cellStyle.fontStyle,
-                                                        fontSize: cellStyle.fontSize,
-                                                        fontFamily: cellStyle.fontFamily,
-                                                        textAlign: cellStyle.textAlign,
-                                                        whiteSpace: 'pre-wrap',
-                                                        wordWrap: 'break-word',
-                                                        overflowWrap: 'break-word',
-                                                        overflow: 'hidden',
-                                                    }}
-                                                    ref={(el) => {
-                                                        if (el) {
-                                                            el.style.height = 'auto'
-                                                            el.style.height = el.scrollHeight + 'px'
-                                                            // Move cursor to end
-                                                            el.setSelectionRange(el.value.length, el.value.length)
-                                                        }
-                                                    }}
-                                                    onInput={(e) => {
-                                                        e.target.style.height = 'auto'
-                                                        e.target.style.height = e.target.scrollHeight + 'px'
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'contain',
+                                                        display: 'block'
                                                     }}
                                                 />
                                             ) : (
-                                                <div
-                                                    className={`w-full h-full px-2 py-1 text-sm ${isLocked ? 'cursor-not-allowed' : 'cursor-text'}`}
-                                                    style={{
-                                                        color: cellStyle.color || '#f3f4f6',
-                                                        fontWeight: cellStyle.fontWeight,
-                                                        fontStyle: cellStyle.fontStyle,
-                                                        fontSize: cellStyle.fontSize,
-                                                        fontFamily: cellStyle.fontFamily,
-                                                        textAlign: cellStyle.textAlign,
-                                                        whiteSpace: 'pre-wrap',
-                                                        wordWrap: 'break-word',
-                                                        overflowWrap: 'break-word',
-                                                        minHeight: '24px', // Ensure minimal height for empty cells
-                                                    }}
-                                                    onClick={() => {
-                                                        if (!isLocked) {
-                                                            setFocusedCell({ row: rowIndex, col: colIndex })
-                                                        }
-                                                    }}
-                                                >
-                                                    {cell.value || ''}
-                                                </div>
-                                            )}
-                                            {/* Display image if exists for this cell */}
-                                            {(() => {
-                                                const cellImage = getImageForCell(cell.coordinate)
-                                                if (cellImage) {
-                                                    return (
-                                                        <img
-                                                            src={`data:image/${cellImage.format};base64,${cellImage.data}`}
-                                                            alt="Cell image"
+                                                <>
+                                                    {focusedCell?.row === rowIndex && focusedCell?.col === colIndex ? (
+                                                        <textarea
+                                                            value={cell.formula || cell.value || ''}
+                                                            onChange={(e) => handleCellChange(activeSheet, rowIndex, colIndex, e.target.value)}
+                                                            onFocus={() => { }}
+                                                            autoFocus
+                                                            onBlur={() => setFocusedCell(null)}
+                                                            readOnly={isLocked}
+                                                            rows={1}
+                                                            className={`w-full h-full px-2 py-1 text-sm bg-transparent focus:outline-none resize-none ${isLocked
+                                                                ? 'cursor-not-allowed'
+                                                                : 'focus:ring-2 focus:ring-primary-500 focus:z-10'
+                                                                }`}
                                                             style={{
-                                                                position: 'absolute',
-                                                                top: 0,
-                                                                left: 0,
-                                                                maxWidth: '100%',
-                                                                maxHeight: '100%',
-                                                                objectFit: 'contain',
-                                                                pointerEvents: 'none',
-                                                                zIndex: 1
+                                                                color: cellStyle.color || '#f3f4f6',
+                                                                fontWeight: cellStyle.fontWeight,
+                                                                fontStyle: cellStyle.fontStyle,
+                                                                fontSize: cellStyle.fontSize,
+                                                                fontFamily: cellStyle.fontFamily,
+                                                                textAlign: cellStyle.textAlign,
+                                                                whiteSpace: 'pre-wrap',
+                                                                wordWrap: 'break-word',
+                                                                overflowWrap: 'break-word',
+                                                                overflow: 'hidden',
+                                                            }}
+                                                            ref={(el) => {
+                                                                if (el) {
+                                                                    el.style.height = 'auto'
+                                                                    el.style.height = el.scrollHeight + 'px'
+                                                                    // Move cursor to end
+                                                                    el.setSelectionRange(el.value.length, el.value.length)
+                                                                }
+                                                            }}
+                                                            onInput={(e) => {
+                                                                e.target.style.height = 'auto'
+                                                                e.target.style.height = e.target.scrollHeight + 'px'
                                                             }}
                                                         />
-                                                    )
-                                                }
-                                                return null
-                                            })()}
+                                                    ) : (
+                                                        <div
+                                                            className={`w-full h-full px-2 py-1 text-sm ${isLocked ? 'cursor-not-allowed' : 'cursor-text'}`}
+                                                            style={{
+                                                                color: cellStyle.color || '#f3f4f6',
+                                                                fontWeight: cellStyle.fontWeight,
+                                                                fontStyle: cellStyle.fontStyle,
+                                                                fontSize: cellStyle.fontSize,
+                                                                fontFamily: cellStyle.fontFamily,
+                                                                textAlign: cellStyle.textAlign,
+                                                                whiteSpace: 'pre-wrap',
+                                                                wordWrap: 'break-word',
+                                                                overflowWrap: 'break-word',
+                                                                minHeight: '24px', // Ensure minimal height for empty cells
+                                                            }}
+                                                            onClick={() => {
+                                                                if (!isLocked) {
+                                                                    setFocusedCell({ row: rowIndex, col: colIndex })
+                                                                }
+                                                            }}
+                                                        >
+                                                            {cell.value || ''}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
                                             {/* Add Row Button - Show only on the first column when hovering */}
                                             {hoveredCell?.row === rowIndex && hoveredCell?.col === colIndex && colIndex === 0 && (
                                                 <button
