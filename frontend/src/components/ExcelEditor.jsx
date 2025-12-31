@@ -154,6 +154,28 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
             }
             return newSheets
         })
+
+        // Update originalCells to shift locked status down
+        setOriginalCells(prev => {
+            const newOriginals = { ...prev }
+            const sheetOriginals = { ...(newOriginals[sheetName] || {}) }
+            const newSheetOriginals = {}
+
+            Object.keys(sheetOriginals).forEach(key => {
+                const [r, c] = key.split('-').map(Number)
+                if (r > rowIndex) {
+                    // Shift down rows below the insertion point
+                    newSheetOriginals[`${r + 1}-${c}`] = sheetOriginals[key]
+                } else {
+                    // Keep rows above as is
+                    newSheetOriginals[key] = sheetOriginals[key]
+                }
+            })
+
+            newOriginals[sheetName] = newSheetOriginals
+            return newOriginals
+        })
+
         setHoveredCell(null) // Hide button after insertion
     }
 
