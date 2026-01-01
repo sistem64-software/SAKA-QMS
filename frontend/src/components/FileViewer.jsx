@@ -2,7 +2,7 @@ import { useState } from 'react'
 import ExcelEditor from './ExcelEditor'
 import WordEditor from './WordEditor'
 
-export default function FileViewer({ fileContent, loading, companies, onFileSaved, onCompanyAdded, selectedFile }) {
+export default function FileViewer({ fileContent, loading, companies, onFileSaved, onCompanyAdded, selectedFile, onUnsavedChanges }) {
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center">
@@ -38,6 +38,7 @@ export default function FileViewer({ fileContent, loading, companies, onFileSave
                     companies={companies}
                     onFileSaved={onFileSaved}
                     onCompanyAdded={onCompanyAdded}
+                    onUnsavedChanges={onUnsavedChanges}
                 />
             )}
 
@@ -48,6 +49,7 @@ export default function FileViewer({ fileContent, loading, companies, onFileSave
                     companies={companies}
                     onFileSaved={onFileSaved}
                     onCompanyAdded={onCompanyAdded}
+                    onUnsavedChanges={onUnsavedChanges}
                 />
             )}
         </div>

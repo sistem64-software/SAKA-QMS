@@ -29,6 +29,7 @@ function App() {
     const [companyName, setCompanyName] = useState(() => {
         return localStorage.getItem('companyName') || ''
     })
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
     // Toast helper function
     const showToast = (message, type = 'info') => {
@@ -224,8 +225,48 @@ function App() {
         }
     }, [companyName])
 
+    // Sayfa kapatılırken veya yenilenirken uyarı ver
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault()
+                e.returnValue = ''
+                return ''
+            }
+        }
+
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload)
+        }
+    }, [hasUnsavedChanges])
+
     // Dosya seçildiğinde içeriği yükle
     const handleFileSelect = async (file) => {
+        // Eğer kaydedilmemiş değişiklik varsa onay iste
+        if (hasUnsavedChanges) {
+            setConfirmDialog({
+                title: 'Kaydedilmemiş Değişiklikler',
+                message: 'Dosyada kaydedilmemiş değişiklikler var. Başka bir dosyaya geçerseniz bu değişiklikler kaybolacak.\n\nDevam etmek istiyor musunuz?',
+                type: 'warning',
+                onConfirm: async () => {
+                    setConfirmDialog(null)
+                    setHasUnsavedChanges(false)
+                    // Onaylandıktan sonra dosyayı yükle
+                    await loadFile(file)
+                },
+                onCancel: () => {
+                    setConfirmDialog(null)
+                    // Seçimi iptal et (Sidebar'da seçili kalanı eski haline getirmek zor olabilir ama en azından işlem yapılmaz)
+                }
+            })
+            return
+        }
+
+        await loadFile(file)
+    }
+
+    const loadFile = async (file) => {
         console.log('Dosya seçildi:', file)
 
         // Word dosyası seçildiyse sayfayı yenile (temiz state için)
@@ -257,6 +298,8 @@ function App() {
             }
             console.log('Dosya response:', response.data)
             setFileContent(response.data)
+            // Yeni dosya yüklendiğinde değişiklik takibini sıfırla
+            setHasUnsavedChanges(false)
         } catch (error) {
             console.error('Dosya yüklenirken hata:', error)
             console.error('Error response:', error.response)
@@ -278,6 +321,7 @@ function App() {
             loadCompanyFiles(selectedCompany)
         }
         showToast('Dosya başarıyla kaydedildi!', 'success')
+        setHasUnsavedChanges(false)
     }
 
     // Dosya silindiğinde
@@ -424,6 +468,7 @@ function App() {
                     selectedFile={selectedFile}
                     onFileSaved={handleFileSaved}
                     onCompanyAdded={loadCompanies}
+                    onUnsavedChanges={setHasUnsavedChanges}
                 />
             </main>
 

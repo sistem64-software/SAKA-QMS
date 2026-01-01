@@ -4,7 +4,7 @@ import Toast from './Toast'
 
 const API_BASE = '/api'
 
-export default function ExcelEditor({ fileContent, companies, onFileSaved, onCompanyAdded }) {
+export default function ExcelEditor({ fileContent, companies, onFileSaved, onCompanyAdded, onUnsavedChanges }) {
     const [sheets, setSheets] = useState(fileContent.sheets || {})
     const [activeSheet, setActiveSheet] = useState(fileContent.active_sheet || Object.keys(fileContent.sheets)[0])
     const [selectedCompany, setSelectedCompany] = useState('')
@@ -60,6 +60,8 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
             }
 
             newSheets[sheetName] = { ...newSheets[sheetName], data: newData }
+            // Değişiklik olduğunu bildir
+            if (onUnsavedChanges) onUnsavedChanges(true)
             return newSheets
         })
     }
@@ -157,6 +159,8 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
             return newSheets
         })
 
+        if (onUnsavedChanges) onUnsavedChanges(true)
+
         // Update originalCells to shift locked status down
         setOriginalCells(prev => {
             const newOriginals = { ...prev }
@@ -199,6 +203,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                 }
             })
             onFileSaved()
+            if (onUnsavedChanges) onUnsavedChanges(false)
             setToast({ message: 'Dosya başarıyla kaydedildi', type: 'success' })
         } catch (error) {
             console.error('Kaydetme hatası:', error)

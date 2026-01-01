@@ -11,7 +11,7 @@ DocumentEditorContainerComponent.Inject(Toolbar)
 
 const API_BASE = '/api'
 
-export default function WordEditor({ fileContent, selectedFile, companies, onFileSaved, onCompanyAdded }) {
+export default function WordEditor({ fileContent, selectedFile, companies, onFileSaved, onCompanyAdded, onUnsavedChanges }) {
     const editorRef = useRef(null)
     const [selectedCompany, setSelectedCompany] = useState('')
     const [newCompanyName, setNewCompanyName] = useState('')
@@ -83,6 +83,8 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
             }, 500)
 
             console.log('Word dosyası Syncfusion editörde açıldı:', fileContent.filename)
+            // Yükleme tamamlandığında dirty state'i temizle
+            if (onUnsavedChanges) onUnsavedChanges(false)
         } catch (error) {
             console.error('Word dosyası yüklenirken hata:', error)
 
@@ -134,6 +136,7 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
             onFileSaved()
             setSaving(false)
             setToast({ message: 'Dosya başarıyla kaydedildi', type: 'success' })
+            if (onUnsavedChanges) onUnsavedChanges(false)
         } catch (error) {
             console.error('Kaydetme hatası:', error)
             console.error('Error response:', error.response)
@@ -250,6 +253,9 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
                     serviceUrl="https://ej2services.syncfusion.com/production/web-services/api/documenteditor/"
                     locale="tr-TR"
                     style={{ display: 'block' }}
+                    contentChange={() => {
+                        if (onUnsavedChanges) onUnsavedChanges(true)
+                    }}
                 />
             </div>
 
