@@ -602,50 +602,45 @@ def save_excel(file_path: Path, content: Dict[str, Any], template_filename: str)
             # Şablonda olmayan sheet'i atla
             continue
         ws = wb[sheet_name]
-
-        data = sheet_data.get("data", [])
         
-        # Birleştirilmiş hücreleri kontrol et
-        merged_ranges = list(ws.merged_cells.ranges)
-        
-        def is_merged_cell_start(row, col):
-            """Birleştirilmiş hücrenin başlangıç hücresi mi kontrol et"""
-            for merged_range in merged_ranges:
-                if row == merged_range.min_row and col == merged_range.min_col:
-                    return True
-            return False
-        
-        def is_in_merged_range(row, col):
-            """Hücre birleştirilmiş bir aralığın içinde mi kontrol et"""
-            for merged_range in merged_ranges:
-                if (merged_range.min_row <= row <= merged_range.max_row and
-                    merged_range.min_col <= col <= merged_range.max_col):
-                    # Eğer başlangıç hücresi değilse, birleştirilmiş hücrenin içinde
-                    if not (row == merged_range.min_row and col == merged_range.min_col):
-                        return True
-            return False
-        
-        for row_idx, row_data in enumerate(data, 1):
-            for col_idx, cell_data in enumerate(row_data, 1):
-                # Birleştirilmiş hücrenin içindeyse ve başlangıç hücresi değilse atla
-                if is_in_merged_range(row_idx, col_idx):
-                    continue
-                
+        # Resimleri kaydet (Place in Cell olanları Place Over Cells'e dönüştürür)
+        images = sheet_data.get("images", [])
+        if images:
+            from openpyxl.drawing.image import Image
+            import io
+            import base64
+            
+            for img_data in images:
                 try:
-                    cell = ws.cell(row=row_idx, column=col_idx)
+                    # Anchor kontrolü
+                    anchor = img_data.get("anchor")
+                    if not anchor:
+                        continue
+                        
+                    # Base64 verisini çöz
+                    b64_data = img_data.get("data")
+                    if not b64_data:
+                        continue
+                        
+                    img_bytes = base64.b64decode(b64_data)
+                    img_stream = io.BytesIO(img_bytes)
                     
-                    # Formül varsa formülü yaz, yoksa değeri yaz
-                    if "formula" in cell_data and cell_data["formula"]:
-                        formula = cell_data["formula"]
-                        # Formül = ile başlamalı
-                        if not formula.startswith('='):
-                            formula = f"={formula}"
-                        cell.value = formula
-                    else:
-                        cell_value = cell_data.get("value", "")
-                        cell.value = cell_value
+                    # Resmi oluştur
+                    img = Image(img_stream)
+                    
+                    # Resmi hücreye yerleştir
+                    img.anchor = anchor
+                    
+                    # Boyutları ayarla (opsiyonel, orijinal boyut korunabilir)
+                    if img_data.get("width"):
+                        img.width = img_data["width"]
+                    if img_data.get("height"):
+                        img.height = img_data["height"]
+                        
+                    ws.add_image(img)
+                    
                 except Exception as e:
-                    # Birleştirilmiş hücre hatası veya başka bir hata varsa atla
+                    print(f"Resim kaydetme hatası: {str(e)}")
                     continue
 
     # Aktif sheet'i koru
