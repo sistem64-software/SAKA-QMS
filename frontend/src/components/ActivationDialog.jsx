@@ -16,6 +16,8 @@ function ActivationDialog({ isOpen, onActivated }) {
     useEffect(() => {
         if (isOpen) {
             loadHwid()
+            // Dialog açıldığında scroll pozisyonunu sıfırla
+            window.scrollTo({ top: 0, behavior: 'smooth' })
         }
     }, [isOpen])
 
@@ -23,21 +25,21 @@ function ActivationDialog({ isOpen, onActivated }) {
         setError('')
         console.log('[DEBUG] HWID yükleniyor...')
         console.log('[DEBUG] API Base:', API_BASE)
-        
+
         try {
             const url = `${API_BASE}/license/hwid`
             console.log('[DEBUG] İstek URL:', url)
             console.log('[DEBUG] İstek gönderiliyor...')
-            
+
             const response = await axios.get(url, {
                 timeout: 30000, // 30 saniye timeout
                 validateStatus: function (status) {
                     return status < 500; // 500'den küçük status kodlarını yakala
                 }
             })
-            
+
             console.log('[DEBUG] Yanıt alındı:', response.status, response.data)
-            
+
             if (response.status === 200 && response.data.hwid) {
                 console.log('[DEBUG] HWID başarıyla alındı:', response.data.hwid.substring(0, 16) + '...')
                 setHwid(response.data.hwid)
@@ -56,9 +58,9 @@ function ActivationDialog({ isOpen, onActivated }) {
                 status: error.response?.status,
                 config: error.config
             })
-            
+
             let errorMessage = 'HWID alınamadı. '
-            
+
             if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
                 errorMessage += 'Backend servisine bağlanılamıyor. '
                 errorMessage += 'Backend\'in çalıştığından emin olun (http://localhost:8000). '
@@ -75,7 +77,7 @@ function ActivationDialog({ isOpen, onActivated }) {
                 errorMessage += `Hata: ${error.message}. `
                 errorMessage += 'Tarayıcı konsolunu (F12) ve backend loglarını kontrol edin.'
             }
-            
+
             setError(errorMessage)
         }
     }
@@ -119,7 +121,7 @@ function ActivationDialog({ isOpen, onActivated }) {
         } catch (error) {
             console.error('Aktivasyon hatası:', error)
             setError(
-                error.response?.data?.detail || 
+                error.response?.data?.detail ||
                 'Lisans aktifleştirilemedi. Lütfen lisans anahtarını kontrol edin.'
             )
         } finally {
@@ -131,7 +133,7 @@ function ActivationDialog({ isOpen, onActivated }) {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-dark-800 border border-dark-700 rounded-xl shadow-2xl max-w-2xl w-full p-8 animate-fade-in">
+            <div className="bg-dark-800 border border-dark-700 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 animate-fade-in">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold text-primary-400">
                         Lisans Aktivasyonu
