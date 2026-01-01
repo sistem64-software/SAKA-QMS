@@ -7,3 +7,5 @@ env/
 venv/
 node_modules/
 frontend/node_modules/
+backend/firmalar
+backend/form_sablonlari
