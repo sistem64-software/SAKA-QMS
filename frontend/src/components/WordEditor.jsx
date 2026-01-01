@@ -4,6 +4,7 @@ import {
     DocumentEditorContainerComponent,
     Toolbar
 } from '@syncfusion/ej2-react-documenteditor'
+import Toast from './Toast'
 
 // Syncfusion servisleri etkinleştir
 DocumentEditorContainerComponent.Inject(Toolbar)
@@ -17,6 +18,7 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
     const [showNewCompanyModal, setShowNewCompanyModal] = useState(false)
     const [saving, setSaving] = useState(false)
     const [isEditorReady, setIsEditorReady] = useState(false)
+    const [toast, setToast] = useState(null)
 
     // Syncfusion editör hazır olduğunda
     useEffect(() => {
@@ -89,18 +91,18 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
                 editorRef.current.documentEditor.openBlank()
             }
 
-            alert('Word dosyası yüklenemedi. Boş bir doküman açıldı.')
+            setToast({ message: 'Word dosyası yüklenemedi. Boş bir doküman açıldı.', type: 'error' })
         }
     }
 
     const handleSave = async () => {
         if (!selectedCompany) {
-            alert('Lütfen bir firma seçin')
+            setToast({ message: 'Lütfen önce firma seçin', type: 'warning' })
             return
         }
 
         if (!editorRef.current || !editorRef.current.documentEditor) {
-            alert('Editör hazır değil')
+            setToast({ message: 'Editör hazır değil', type: 'error' })
             return
         }
 
@@ -129,10 +131,9 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
             console.log('Dosya kaydedildi:', response.data)
             // Alert kaldırıldı - sessiz kaydetme
 
-
-
             onFileSaved()
             setSaving(false)
+            setToast({ message: 'Dosya başarıyla kaydedildi', type: 'success' })
         } catch (error) {
             console.error('Kaydetme hatası:', error)
             console.error('Error response:', error.response)
@@ -144,14 +145,14 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
                 errorMessage = error.message
             }
 
-            alert('❌ Dosya kaydedilirken bir hata oluştu:\n\n' + errorMessage)
+            setToast({ message: '❌ Dosya kaydedilirken bir hata oluştu: ' + errorMessage, type: 'error' })
             setSaving(false)
         }
     }
 
     const handlePrint = () => {
         if (!editorRef.current || !editorRef.current.documentEditor) {
-            alert('Editör hazır değil')
+            setToast({ message: 'Editör hazır değil', type: 'error' })
             return
         }
 
@@ -161,7 +162,7 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
 
     const handleAddCompany = async () => {
         if (!newCompanyName.trim()) {
-            alert('Lütfen firma adı girin')
+            setToast({ message: 'Lütfen firma adı girin', type: 'warning' })
             return
         }
 
@@ -171,14 +172,22 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
             setNewCompanyName('')
             setSelectedCompany(newCompanyName)
             onCompanyAdded()
+            setToast({ message: 'Firma başarıyla eklendi', type: 'success' })
         } catch (error) {
             console.error('Firma ekleme hatası:', error)
-            alert('Firma eklenirken bir hata oluştu: ' + (error.response?.data?.detail || error.message))
+            setToast({ message: 'Firma eklenirken bir hata oluştu: ' + (error.response?.data?.detail || error.message), type: 'error' })
         }
     }
 
     return (
         <div className="h-full flex flex-col bg-dark-800">
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
             {/* Header - Dark Theme */}
             <div className="bg-dark-800 border-b border-dark-700 shadow-sm">
                 <div className="px-4 py-3 flex items-center justify-between">
@@ -222,8 +231,8 @@ export default function WordEditor({ fileContent, selectedFile, companies, onFil
                         </button>
                         <button
                             onClick={handleSave}
-                            disabled={saving || !selectedCompany}
-                            className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={saving}
+                            className={`px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed ${!selectedCompany ? 'opacity-50' : ''}`}
                         >
                             {saving ? 'Kaydediliyor...' : 'Kaydet'}
                         </button>

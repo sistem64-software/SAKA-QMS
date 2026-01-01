@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import Toast from './Toast'
 
 const API_BASE = '/api'
 
@@ -14,6 +15,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
     const [focusedCell, setFocusedCell] = useState(null) // Track focused cell {row, col} for formula display
     const [lockFilledCells, setLockFilledCells] = useState(true) // Lock cells that have initial values
     const [originalCells, setOriginalCells] = useState({}) // Track original cell values
+    const [toast, setToast] = useState(null)
 
     useEffect(() => {
         setSheets(fileContent.sheets || {})
@@ -181,7 +183,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
 
     const handleSave = async () => {
         if (!selectedCompany) {
-            alert('Lütfen bir firma seçin')
+            setToast({ message: 'Lütfen önce firma seçin', type: 'warning' })
             return
         }
 
@@ -197,9 +199,10 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                 }
             })
             onFileSaved()
+            setToast({ message: 'Dosya başarıyla kaydedildi', type: 'success' })
         } catch (error) {
             console.error('Kaydetme hatası:', error)
-            alert('Dosya kaydedilirken bir hata oluştu: ' + (error.response?.data?.detail || error.message))
+            setToast({ message: 'Dosya kaydedilirken bir hata oluştu: ' + (error.response?.data?.detail || error.message), type: 'error' })
         } finally {
             setSaving(false)
         }
@@ -207,7 +210,7 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
 
     const handleAddCompany = async () => {
         if (!newCompanyName.trim()) {
-            alert('Lütfen firma adı girin')
+            setToast({ message: 'Lütfen firma adı girin', type: 'warning' })
             return
         }
 
@@ -217,9 +220,10 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
             setNewCompanyName('')
             setSelectedCompany(newCompanyName)
             onCompanyAdded()
+            setToast({ message: 'Firma başarıyla eklendi', type: 'success' })
         } catch (error) {
             console.error('Firma ekleme hatası:', error)
-            alert('Firma eklenirken bir hata oluştu: ' + (error.response?.data?.detail || error.message))
+            setToast({ message: 'Firma eklenirken bir hata oluştu: ' + (error.response?.data?.detail || error.message), type: 'error' })
         }
     }
 
@@ -323,6 +327,13 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
 
     return (
         <div className="h-full flex flex-col bg-dark-800">
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
             {/* Header - Dark Theme - Responsive */}
             <div className="bg-dark-800 border-b border-dark-700 shadow-sm">
                 <div className="px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -385,8 +396,8 @@ export default function ExcelEditor({ fileContent, companies, onFileSaved, onCom
                             </button>
                             <button
                                 onClick={handleSave}
-                                disabled={saving || !selectedCompany}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg whitespace-nowrap"
+                                disabled={saving}
+                                className={`flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg whitespace-nowrap ${!selectedCompany ? 'opacity-50' : ''}`}
                             >
                                 {saving ? 'Kaydediliyor...' : 'Kaydet'}
                             </button>
