@@ -17,14 +17,43 @@ export default function Sidebar({
     isOpen,
     onError,
     onSuccess,
-    onSearch,
-    searchResults = [],
-    isSearching = false,
-    onClearSearch,
+
     companyName = ''
 }) {
     const [uploading, setUploading] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [searchResults, setSearchResults] = useState([])
+    const [isSearching, setIsSearching] = useState(false)
     const fileInputRef = useRef(null)
+    const searchTimeoutRef = useRef(null)
+
+    const handleSearch = async (query) => {
+        setSearchQuery(query)
+
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current)
+        }
+
+        if (query.length < 2) {
+            setSearchResults([])
+            setIsSearching(false)
+            return
+        }
+
+        setIsSearching(true)
+        searchTimeoutRef.current = setTimeout(async () => {
+            try {
+                const response = await axios.get(`${API_BASE}/search`, {
+                    params: { query }
+                })
+                setSearchResults(response.data.results || [])
+            } catch (error) {
+                console.error('Arama hatası:', error)
+            } finally {
+                setIsSearching(false)
+            }
+        }, 500)
+    }
 
     const handleFileUpload = async (event) => {
         const files = Array.from(event.target.files)
@@ -139,25 +168,96 @@ export default function Sidebar({
                 </p>
             </div>
 
-            {/* Arama Butonu */}
-            <div className="px-4 pb-4">
-                <button
-                    onClick={() => {
-                        if (window.openSearchModal) {
-                            window.openSearchModal()
-                        }
-                    }}
-                    className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <span>Dosya Ara</span>
-                </button>
+
+
+            {/* Search Section */}
+            <div className="px-4 mb-4">
+                <div className="relative">
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => handleSearch(e.target.value)}
+                        placeholder="İş emri, parça no veya ad..."
+                        className="w-full bg-dark-900 border border-dark-700 text-dark-100 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2.5 pl-10 transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        {isSearching ? (
+                            <svg className="animate-spin h-4 w-4 text-primary-400" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                        ) : (
+                            <svg className="w-4 h-4 text-dark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* File List */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 pt-0">
+                {/* Arama Sonuçları */}
+                {searchQuery.length >= 2 && (
+                    <div className="mb-6">
+                        <h2 className="text-sm font-semibold text-primary-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                            Arama Sonuçları ({searchResults.length})
+                            {searchQuery && (
+                                <button
+                                    onClick={() => handleSearch('')}
+                                    className="text-[10px] lowercase bg-dark-700 hover:bg-dark-600 px-2 py-0.5 rounded text-dark-300"
+                                >
+                                    temizle
+                                </button>
+                            )}
+                        </h2>
+                        <div className="space-y-2">
+                            {searchResults.length === 0 && !isSearching ? (
+                                <p className="text-dark-500 text-xs text-center py-2">Sonuç bulunamadı</p>
+                            ) : (
+                                searchResults.map((result) => (
+                                    <div
+                                        key={`${result.company}-${result.path}`}
+                                        className={`relative p-3 rounded-lg border transition-all duration-200 group
+                                            ${selectedFile?.name === result.filename && selectedFile?.company === result.company
+                                                ? 'bg-primary-900/30 border-primary-600 shadow-lg shadow-primary-900/20'
+                                                : 'bg-dark-900 border-dark-700 hover:bg-dark-800 hover:border-dark-600'
+                                            }`}
+                                    >
+                                        <button
+                                            onClick={() => onFileSelect({
+                                                name: result.filename,
+                                                company: result.company,
+                                                extension: result.extension
+                                            })}
+                                            className="w-full text-left flex items-start gap-3"
+                                        >
+                                            <div className="mt-0.5">
+                                                {getFileIcon(result.extension)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`font-medium text-sm truncate transition-colors mb-1
+                                                    ${selectedFile?.name === result.filename && selectedFile?.company === result.company ? 'text-primary-400' : 'text-dark-200 group-hover:text-dark-100'}
+                                                `}>
+                                                    {result.filename}
+                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded">
+                                                        {result.company}
+                                                    </span>
+                                                    <span className="text-[10px] text-dark-500 italic">
+                                                        {result.reason}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div className="my-4 border-b border-dark-700"></div>
+                    </div>
+                )}
                 {/* Şablon Dosyalar */}
                 <h2 className="text-sm font-semibold text-dark-400 uppercase tracking-wide mb-3">
                     Şablon Dosyalar ({templates.length})

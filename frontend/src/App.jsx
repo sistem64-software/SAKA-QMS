@@ -4,7 +4,7 @@ import Sidebar from './components/Sidebar'
 import FileViewer from './components/FileViewer'
 import Toast from './components/Toast'
 import ConfirmDialog from './components/ConfirmDialog'
-import SearchModal from './components/SearchModal'
+
 import ActivationDialog from './components/ActivationDialog'
 
 const API_BASE = '/api'
@@ -19,10 +19,8 @@ function App() {
     const [selectedCompany, setSelectedCompany] = useState(null)
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [toast, setToast] = useState(null)
+
     const [confirmDialog, setConfirmDialog] = useState(null)
-    const [searchResults, setSearchResults] = useState([])
-    const [isSearching, setIsSearching] = useState(false)
-    const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
     const [isLicensed, setIsLicensed] = useState(false)
     const [isCheckingLicense, setIsCheckingLicense] = useState(true)
     const [showActivationDialog, setShowActivationDialog] = useState(false)
@@ -52,36 +50,7 @@ function App() {
         }
     }, [])
 
-    // Arama fonksiyonu
-    const handleSearch = async (query) => {
-        // Boşsa aramayı yapma
-        if (!query) {
-            setSearchResults([])
-            return
-        }
 
-        setIsSearching(true)
-        try {
-            const params = new URLSearchParams()
-            params.append('query', query)
-
-            const response = await axios.get(`${API_BASE}/search?${params.toString()}`)
-            setSearchResults(response.data.results || [])
-        } catch (error) {
-            console.error('Arama hatası:', error)
-            if (error.response?.status !== 400) {
-                showToast('Arama sırasında bir hata oluştu', 'error')
-            }
-            setSearchResults([])
-        } finally {
-            setIsSearching(false)
-        }
-    }
-
-    // Aramayı temizle
-    const clearSearch = () => {
-        setSearchResults([])
-    }
 
     // Şablonları yükle
     const loadTemplates = async () => {
@@ -199,13 +168,6 @@ function App() {
     // İlk yükleme - lisans kontrolü
     useEffect(() => {
         checkLicense()
-
-        // Global function for opening search modal from Sidebar
-        window.openSearchModal = () => setIsSearchModalOpen(true)
-
-        return () => {
-            delete window.openSearchModal
-        }
     }, [])
 
     // Lisanslı ise normal uygulamayı yükle
@@ -451,10 +413,6 @@ function App() {
                 onSuccess={(msg) => showToast(msg, 'success')}
                 selectedFile={selectedFile}
                 isOpen={isSidebarOpen}
-                onSearch={handleSearch}
-                searchResults={searchResults}
-                isSearching={isSearching}
-                onClearSearch={clearSearch}
                 companyName={companyName}
             />
 
@@ -492,18 +450,7 @@ function App() {
                 />
             )}
 
-            {/* Search Modal */}
-            <SearchModal
-                isOpen={isSearchModalOpen}
-                onClose={() => {
-                    setIsSearchModalOpen(false)
-                    clearSearch()
-                }}
-                onSearch={handleSearch}
-                searchResults={searchResults}
-                isSearching={isSearching}
-                onFileSelect={handleFileSelect}
-            />
+
 
             {/* Activation Dialog - Her zaman hazır (lisans kontrolü için) */}
             <ActivationDialog
