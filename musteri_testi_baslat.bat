@@ -14,7 +14,7 @@ PAUSE
 
 ECHO.
 ECHO 1. Backend servisi baslatiliyor (Port 8000)...
-start "SAKA QMS Backend" cmd /k "cd backend && venv\Scripts\activate && uvicorn main:app --reload --port 8000"
+start "SAKA QMS Backend" cmd /k "cd backend && uvicorn main:app --reload --port 8000"
 
 ECHO.
 ECHO 2. Frontend servisi baslatiliyor (Port 5173)...

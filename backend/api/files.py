@@ -161,6 +161,78 @@ async def delete_company_file(company_name: str, filename: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Dosya silme hatası: {str(e)}")
 
+@router.patch("/file/rename")
+async def rename_file(old_name: str, new_name: str):
+    """
+    Şablon dosyasının adını değiştir
+    """
+    old_path = TEMPLATE_DIR / old_name
+    
+    if not old_path.exists():
+        raise HTTPException(status_code=404, detail="Dosya bulunamadı")
+    
+    # Yeni dosya adı için uzantıyı koru veya kontrol et
+    old_ext = old_path.suffix.lower()
+    if not new_name.lower().endswith(old_ext):
+        new_name += old_ext
+    
+    new_path = TEMPLATE_DIR / new_name
+    
+    if new_path.exists():
+        raise HTTPException(status_code=400, detail="Bu isimde bir dosya zaten mevcut")
+    
+    try:
+        os.rename(old_path, new_path)
+        return {
+            "message": "Dosya başarıyla adlandırıldı",
+            "old_name": old_name,
+            "new_name": new_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dosya adlandırma hatası: {str(e)}")
+
+@router.patch("/companies/{company_name}/file/rename")
+async def rename_company_file(company_name: str, old_name: str, new_name: str):
+    """
+    Firma dosyasının adını değiştir (alt klasörler dahil)
+    """
+    company_dir = COMPANIES_DIR / company_name
+    
+    if not company_dir.exists():
+        raise HTTPException(status_code=404, detail="Firma bulunamadı")
+    
+    # Dosyayı firma klasöründe veya alt klasörlerde ara
+    old_path = None
+    for found_path in company_dir.rglob(old_name):
+        if found_path.is_file() and found_path.name == old_name:
+            old_path = found_path
+            break
+    
+    if not old_path or not old_path.exists():
+        raise HTTPException(status_code=404, detail="Dosya bulunamadı")
+    
+    # Yeni dosya adı için uzantıyı koru veya kontrol et
+    old_ext = old_path.suffix.lower()
+    if not new_name.lower().endswith(old_ext):
+        new_name += old_ext
+    
+    new_path = old_path.parent / new_name
+    
+    if new_path.exists():
+        raise HTTPException(status_code=400, detail="Bu isimde bir dosya zaten mevcut")
+    
+    try:
+        os.rename(old_path, new_path)
+        return {
+            "message": "Dosya başarıyla adlandırıldı",
+            "company": company_name,
+            "old_name": old_name,
+            "new_name": new_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dosya adlandırma hatası: {str(e)}")
+
+
 @router.post("/save-word-file")
 async def save_word_file_upload(file: UploadFile, company: str = Form(...)):
     """
@@ -593,15 +665,44 @@ def save_excel(file_path: Path, content: Dict[str, Any], template_filename: str)
         wb = openpyxl.Workbook()
         wb.save(file_path)
 
-    # Hedef dosyayı aç ve sadece değerleri yaz
+    # Hedef dosyayı aç ve değerleri yaz
     wb = openpyxl.load_workbook(file_path)
     sheets = content.get("sheets", {})
 
     for sheet_name, sheet_data in sheets.items():
         if sheet_name not in wb.sheetnames:
-            # Şablonda olmayan sheet'i atla
+            # Şablonda olmayan sheet'i atla (Gerekirse burada yeni sheet de oluşturulabilir)
             continue
+            
         ws = wb[sheet_name]
+        data = sheet_data.get("data", [])
+        
+        # Hücre verilerini yaz
+        for row_idx, row in enumerate(data):
+            for col_idx, cell_data in enumerate(row):
+                # Formül varsa formülü yaz
+                if "formula" in cell_data:
+                    ws.cell(row=row_idx + 1, column=col_idx + 1).value = cell_data["formula"]
+                else:
+                    # Değeri al
+                    value = cell_data.get("value", "")
+                    
+                    # Sayısal değerleri korumaya çalış (int/float)
+                    if isinstance(value, str) and value.strip():
+                        # Boşlukları temizleyip sayı kontrolü yap
+                        val_str = value.strip()
+                        try:
+                            if '.' in val_str:
+                                value = float(val_str)
+                            else:
+                                value = int(val_str)
+                        except ValueError:
+                            # Sayı değilse string olarak bırak
+                            pass
+                    
+                    # Excel hücresine yaz
+                    if value != "": # Boş olmayanları yaz
+                        ws.cell(row=row_idx + 1, column=col_idx + 1).value = value
         
         # Resimleri kaydet (Place in Cell olanları Place Over Cells'e dönüştürür)
         images = sheet_data.get("images", [])
@@ -941,3 +1042,117 @@ def extract_deep_images(file_path: Path) -> Dict[str, List[Dict[str, Any]]]:
         traceback.print_exc()
         
     return results
+
+@router.get("/search")
+async def search_files(query: str):
+    """
+    Firma dosyaları içerisinde arama yap (İş emri no, parça no, parça adı vb.)
+    """
+    if not query or len(query) < 2:
+        return {"results": [], "count": 0}
+    
+    query = query.lower().strip()
+    results = []
+    
+    print(f"\n[SEARCH] Arama başlatıldı: '{query}'")
+    print(f"[SEARCH] Tarama dizini: {COMPANIES_DIR.absolute()}")
+    
+    try:
+        if not COMPANIES_DIR.exists():
+            print(f"[SEARCH] HATA: {COMPANIES_DIR} dizini bulunamadı!")
+            return {"results": [], "count": 0}
+
+        # Tüm firmaları ve dosyalarını tara
+        for company_dir in COMPANIES_DIR.iterdir():
+            if not company_dir.is_dir():
+                continue
+                
+            company_name = company_dir.name
+            # print(f"[SEARCH] Firma inceleniyor: {company_name}")
+            
+            # Alt klasörler dahil tüm dosyaları tara
+            for file_path in company_dir.rglob("*"):
+                if not file_path.is_file():
+                    continue
+                
+                extension = file_path.suffix.lower()
+                if extension not in ['.xlsx', '.xls', '.docx', '.doc']:
+                    continue
+                
+                # Dosya adında ara
+                match_reason = None
+                if query in file_path.name.lower():
+                    match_reason = "Dosya adı eşleşti"
+                
+                # Dosya içeriğinde ara (eğer henüz eşleşmediyse)
+                content_match = False
+                if not match_reason:
+                    if extension in ['.xlsx', '.xls']:
+                        content_match = search_in_excel(file_path, query)
+                    elif extension in ['.docx', '.doc']:
+                        content_match = search_in_word(file_path, query)
+                
+                if content_match:
+                    match_reason = "Dosya içeriği eşleşti"
+                
+                if match_reason:
+                    print(f"[SEARCH] Eşleşme bulundu: {file_path.name} ({match_reason})")
+                    # Relative path'i al (firma klasörüne göre)
+                    try:
+                        rel_path = file_path.relative_to(COMPANIES_DIR / company_name)
+                        results.append({
+                            "filename": file_path.name,
+                            "company": company_name,
+                            "path": str(rel_path).replace('\\', '/'),
+                            "reason": match_reason,
+                            "extension": extension
+                        })
+                    except Exception as e:
+                        print(f"[SEARCH] Path hatası: {e}")
+        
+        print(f"[SEARCH] Arama tamamlandı. {len(results)} sonuç bulundu.")
+        return {"results": results, "count": len(results)}
+    except Exception as e:
+        print(f"[SEARCH] Genel arama hatası: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Arama sırasında hata oluştu: {str(e)}")
+
+def search_in_excel(file_path: Path, query: str) -> bool:
+    """Excel içeriğinde arama yap"""
+    try:
+        # data_only=True bazen kaydedilmemiş formüllerde sorun çıkarabiliyor.
+        # read_only=True ise bazı büyük dosyalarda daha hızlıdır.
+        # İkisini de kaldırarak en güvenli (ama biraz daha yavaş) okumayı deneyelim.
+        wb = openpyxl.load_workbook(file_path, data_only=False, read_only=False)
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            # Tüm hücreleri tara
+            for row in ws.iter_rows():
+                for cell in row:
+                    cell_value = cell.value
+                    if cell_value and query in str(cell_value).lower():
+                        return True
+        return False
+    except Exception as e:
+        # print(f"[SEARCH] Excel hata ({file_path.name}): {e}")
+        return False
+
+def search_in_word(file_path: Path, query: str) -> bool:
+    """Word içeriğinde arama yap"""
+    try:
+        doc = Document(file_path)
+        # Paragraflarda ara
+        for para in doc.paragraphs:
+            if query in para.text.lower():
+                return True
+        # Tablolarda ara
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if query in cell.text.lower():
+                        return True
+        return False
+    except Exception as e:
+        # print(f"[SEARCH] Word hata ({file_path.name}): {e}")
+        return False
