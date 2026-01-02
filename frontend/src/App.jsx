@@ -409,6 +409,10 @@ function App() {
                 onFileSelect={handleFileSelect}
                 onFileUploaded={handleFileUploaded}
                 onFileDelete={handleFileDelete}
+                onFileRename={() => {
+                    loadTemplates()
+                    if (selectedCompany) loadCompanyFiles(selectedCompany)
+                }}
                 onError={(msg) => showToast(msg, 'error')}
                 onSuccess={(msg) => showToast(msg, 'success')}
                 selectedFile={selectedFile}

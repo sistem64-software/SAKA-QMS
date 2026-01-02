@@ -161,6 +161,78 @@ async def delete_company_file(company_name: str, filename: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Dosya silme hatası: {str(e)}")
 
+@router.patch("/file/rename")
+async def rename_file(old_name: str, new_name: str):
+    """
+    Şablon dosyasının adını değiştir
+    """
+    old_path = TEMPLATE_DIR / old_name
+    
+    if not old_path.exists():
+        raise HTTPException(status_code=404, detail="Dosya bulunamadı")
+    
+    # Yeni dosya adı için uzantıyı koru veya kontrol et
+    old_ext = old_path.suffix.lower()
+    if not new_name.lower().endswith(old_ext):
+        new_name += old_ext
+    
+    new_path = TEMPLATE_DIR / new_name
+    
+    if new_path.exists():
+        raise HTTPException(status_code=400, detail="Bu isimde bir dosya zaten mevcut")
+    
+    try:
+        os.rename(old_path, new_path)
+        return {
+            "message": "Dosya başarıyla adlandırıldı",
+            "old_name": old_name,
+            "new_name": new_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dosya adlandırma hatası: {str(e)}")
+
+@router.patch("/companies/{company_name}/file/rename")
+async def rename_company_file(company_name: str, old_name: str, new_name: str):
+    """
+    Firma dosyasının adını değiştir (alt klasörler dahil)
+    """
+    company_dir = COMPANIES_DIR / company_name
+    
+    if not company_dir.exists():
+        raise HTTPException(status_code=404, detail="Firma bulunamadı")
+    
+    # Dosyayı firma klasöründe veya alt klasörlerde ara
+    old_path = None
+    for found_path in company_dir.rglob(old_name):
+        if found_path.is_file() and found_path.name == old_name:
+            old_path = found_path
+            break
+    
+    if not old_path or not old_path.exists():
+        raise HTTPException(status_code=404, detail="Dosya bulunamadı")
+    
+    # Yeni dosya adı için uzantıyı koru veya kontrol et
+    old_ext = old_path.suffix.lower()
+    if not new_name.lower().endswith(old_ext):
+        new_name += old_ext
+    
+    new_path = old_path.parent / new_name
+    
+    if new_path.exists():
+        raise HTTPException(status_code=400, detail="Bu isimde bir dosya zaten mevcut")
+    
+    try:
+        os.rename(old_path, new_path)
+        return {
+            "message": "Dosya başarıyla adlandırıldı",
+            "company": company_name,
+            "old_name": old_name,
+            "new_name": new_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dosya adlandırma hatası: {str(e)}")
+
+
 @router.post("/save-word-file")
 async def save_word_file_upload(file: UploadFile, company: str = Form(...)):
     """

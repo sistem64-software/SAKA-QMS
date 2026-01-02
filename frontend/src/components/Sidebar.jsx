@@ -13,6 +13,7 @@ export default function Sidebar({
     onFileSelect,
     onFileUploaded,
     onFileDelete,
+    onFileRename,
     selectedFile,
     isOpen,
     onError,
@@ -24,6 +25,8 @@ export default function Sidebar({
     const [searchQuery, setSearchQuery] = useState('')
     const [searchResults, setSearchResults] = useState([])
     const [isSearching, setIsSearching] = useState(false)
+    const [renamingFile, setRenamingFile] = useState(null)
+    const [newName, setNewName] = useState('')
     const fileInputRef = useRef(null)
     const searchTimeoutRef = useRef(null)
 
@@ -115,6 +118,46 @@ export default function Sidebar({
         }
     }
 
+    const startRenaming = (file) => {
+        setRenamingFile(file)
+        // Uzantıyı gösterme
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
+        setNewName(nameWithoutExt)
+    }
+
+    const cancelRenaming = () => {
+        setRenamingFile(null)
+        setNewName('')
+    }
+
+    const submitRename = async () => {
+        if (!newName.trim() || !renamingFile) return
+
+        try {
+            if (renamingFile.company) {
+                await axios.patch(`${API_BASE}/companies/${renamingFile.company}/file/rename`, null, {
+                    params: {
+                        old_name: renamingFile.name,
+                        new_name: newName
+                    }
+                })
+            } else {
+                await axios.patch(`${API_BASE}/file/rename`, null, {
+                    params: {
+                        old_name: renamingFile.name,
+                        new_name: newName
+                    }
+                })
+            }
+
+            if (onSuccess) onSuccess('Dosya adı başarıyla güncellendi', 'success')
+            if (onFileRename) onFileRename()
+            cancelRenaming()
+        } catch (error) {
+            console.error('Adlandırma hatası:', error)
+            if (onError) onError('Dosya adlandırılırken hata oluştu: ' + (error.response?.data?.detail || error.message))
+        }
+    }
     const formatFileSize = (bytes) => {
         if (bytes < 1024) return bytes + ' B'
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
@@ -236,7 +279,9 @@ export default function Sidebar({
                                                 {getFileIcon(result.extension)}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className={`font-medium text-sm truncate transition-colors mb-1
+                                                <p
+                                                    title={result.filename}
+                                                    className={`font-medium text-sm truncate transition-colors mb-1
                                                     ${selectedFile?.name === result.filename && selectedFile?.company === result.company ? 'text-primary-400' : 'text-dark-200 group-hover:text-dark-100'}
                                                 `}>
                                                     {result.filename}
@@ -280,36 +325,80 @@ export default function Sidebar({
                             >
                                 <button
                                     onClick={() => onFileSelect(file)}
-                                    className="w-full text-left flex items-start gap-3"
+                                    className="w-full text-left flex items-start gap-3 pr-16"
                                 >
                                     <div className="mt-0.5">
                                         {getFileIcon(file.extension)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className={`font-medium text-sm truncate transition-colors
-                       ${selectedFile?.name === file.name ? 'text-primary-400' : 'text-dark-200 group-hover:text-dark-100'}
-                     `}>
-                                            {file.name}
-                                        </p>
-                                        <p className="text-xs text-dark-500 mt-0.5">
-                                            {formatFileSize(file.size)}
-                                        </p>
+                                        {renamingFile?.name === file.name && !renamingFile.company ? (
+                                            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="text"
+                                                    value={newName}
+                                                    onChange={(e) => setNewName(e.target.value)}
+                                                    className="bg-dark-700 border border-primary-500 text-sm rounded px-2 py-1 w-full text-dark-100 focus:outline-none"
+                                                    autoFocus
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') submitRename()
+                                                        if (e.key === 'Escape') cancelRenaming()
+                                                    }}
+                                                />
+                                                <button onClick={submitRename} className="text-green-400 hover:text-green-300">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </button>
+                                                <button onClick={cancelRenaming} className="text-red-400 hover:text-red-300">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p
+                                                    title={file.name}
+                                                    className={`font-medium text-sm truncate transition-colors
+                                                  ${selectedFile?.name === file.name ? 'text-primary-400' : 'text-dark-200 group-hover:text-dark-100'}
+                                                `}>
+                                                    {file.name}
+                                                </p>
+                                                <p className="text-xs text-dark-500 mt-0.5">
+                                                    {formatFileSize(file.size)}
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
                                 </button>
 
-                                {/* Delete Button */}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        onFileDelete(file)
-                                    }}
-                                    className="absolute top-3 right-3 p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 active:scale-95"
-                                    title="Dosyayı Sil"
-                                >
-                                    <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
+                                {/* Action Buttons */}
+                                <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            startRenaming(file)
+                                        }}
+                                        className="p-1.5 bg-primary-500/10 hover:bg-primary-500/20 border border-primary-500/30 hover:border-primary-500/50 rounded-md transition-all duration-200 active:scale-95"
+                                        title="Yeniden Adlandır"
+                                    >
+                                        <svg className="w-4 h-4 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onFileDelete(file)
+                                        }}
+                                        className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-md transition-all duration-200 active:scale-95"
+                                        title="Dosyayı Sil"
+                                    >
+                                        <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
@@ -373,41 +462,85 @@ export default function Sidebar({
                             >
                                 <button
                                     onClick={() => onFileSelect({ ...file, company: selectedCompany })}
-                                    className="w-full text-left flex items-start gap-3"
+                                    className="w-full text-left flex items-start gap-3 pr-16"
                                 >
                                     <div className="mt-0.5">
                                         {getFileIcon(file.extension)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className={`font-medium text-sm truncate transition-colors mb-1
-                       ${selectedFile?.name === file.name && selectedFile?.company === selectedCompany ? 'text-primary-400' : 'text-dark-200 group-hover:text-dark-100'}
-                     `}>
-                                            {file.name}
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded">
-                                                {selectedCompany}
-                                            </span>
-                                            <span className="text-xs text-dark-500">
-                                                {formatFileSize(file.size)}
-                                            </span>
-                                        </div>
+                                        {renamingFile?.name === file.name && renamingFile.company === selectedCompany ? (
+                                            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="text"
+                                                    value={newName}
+                                                    onChange={(e) => setNewName(e.target.value)}
+                                                    className="bg-dark-700 border border-primary-500 text-sm rounded px-2 py-1 w-full text-dark-100 focus:outline-none"
+                                                    autoFocus
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') submitRename()
+                                                        if (e.key === 'Escape') cancelRenaming()
+                                                    }}
+                                                />
+                                                <button onClick={submitRename} className="text-green-400 hover:text-green-300">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </button>
+                                                <button onClick={cancelRenaming} className="text-red-400 hover:text-red-300">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p
+                                                    title={file.name}
+                                                    className={`font-medium text-sm truncate transition-colors mb-1
+                                                   ${selectedFile?.name === file.name && selectedFile?.company === selectedCompany ? 'text-primary-400' : 'text-dark-200 group-hover:text-dark-100'}
+                                                `}>
+                                                    {file.name}
+                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/30 rounded">
+                                                        {selectedCompany}
+                                                    </span>
+                                                    <span className="text-xs text-dark-500">
+                                                        {formatFileSize(file.size)}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </button>
 
-                                {/* Delete Button */}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        onFileDelete({ ...file, company: selectedCompany })
-                                    }}
-                                    className="absolute top-3 right-3 p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 active:scale-95"
-                                    title="Dosyayı Sil"
-                                >
-                                    <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
+                                {/* Action Buttons */}
+                                <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            startRenaming({ ...file, company: selectedCompany })
+                                        }}
+                                        className="p-1.5 bg-primary-500/10 hover:bg-primary-500/20 border border-primary-500/30 hover:border-primary-500/50 rounded-md transition-all duration-200 active:scale-95"
+                                        title="Yeniden Adlandır"
+                                    >
+                                        <svg className="w-4 h-4 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onFileDelete({ ...file, company: selectedCompany })
+                                        }}
+                                        className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 rounded-md transition-all duration-200 active:scale-95"
+                                        title="Dosyayı Sil"
+                                    >
+                                        <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
